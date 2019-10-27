@@ -111,6 +111,8 @@ public class MainActivity extends AppCompatActivity {
 
             peertext.setText("Peer: none");
             connectbutton.setEnabled(false);
+            sendbutton.setEnabled(false);
+            messagetextbox.setEnabled(false);
         }
         else {
             wifiManager.setWifiEnabled(true);

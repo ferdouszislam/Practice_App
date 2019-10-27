@@ -32,11 +32,16 @@ public class WifiBroadcastReceiver extends BroadcastReceiver {
 
                 activity.peertext.setText("Peers: "+peers.size() +" (");
 
-                for(WifiP2pDevice device: peers)
-                    activity.peertext.append(" "+device.deviceName+",");
+                for(int i=0;i<peers.size();i++) {
+                    if(i==peers.size()-1){
+                        activity.peertext.append(" " + peers.get(i).deviceName + " )");
+                        break;
+                    }
+                    activity.peertext.append(" " + peers.get(i).deviceName + ",");
+                }
 
                 Log.d("debugwifi", "onPeersAvailable: peers list updated - "+peers.toString());
-            }activity.peertext.append(" )");
+            }
 
             if(peers.size()==0)
                 Log.d("debugwifi", "onPeersAvailable: no peers found");
