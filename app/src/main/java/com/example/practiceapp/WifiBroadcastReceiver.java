@@ -3,13 +3,10 @@ package com.example.practiceapp;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.net.wifi.p2p.WifiP2pDevice;
-import android.net.wifi.p2p.WifiP2pDeviceList;
+import android.net.NetworkInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.util.Log;
 
-import java.util.ArrayList;
-import java.util.List;
 
 public class WifiBroadcastReceiver extends BroadcastReceiver {
 
@@ -17,36 +14,7 @@ public class WifiBroadcastReceiver extends BroadcastReceiver {
     private WifiP2pManager.Channel channel;
     private MainActivity activity;
 
-    private List<WifiP2pDevice> peers = new ArrayList<WifiP2pDevice>();
-    private WifiP2pManager.PeerListListener peerListListener = new WifiP2pManager.PeerListListener() {
-        @Override
-        public void onPeersAvailable(WifiP2pDeviceList peerList) {
 
-            //Log.d("debugwifi", "onPeersAvailable: do notihng " + peerList.getDeviceList().toString());
-
-            List<WifiP2pDevice> newPeers = new ArrayList(peerList.getDeviceList());
-
-            if(!newPeers.equals(peers)){
-                peers.clear();
-                peers.addAll(newPeers);
-
-                activity.peertext.setText("Peers: "+peers.size() +" (");
-
-                for(int i=0;i<peers.size();i++) {
-                    if(i==peers.size()-1){
-                        activity.peertext.append(" " + peers.get(i).deviceName + " )");
-                        break;
-                    }
-                    activity.peertext.append(" " + peers.get(i).deviceName + ",");
-                }
-
-                Log.d("debugwifi", "onPeersAvailable: peers list updated - "+peers.toString());
-            }
-
-            if(peers.size()==0)
-                Log.d("debugwifi", "onPeersAvailable: no peers found");
-        }
-    };
 
     public WifiBroadcastReceiver(WifiP2pManager manager, WifiP2pManager.Channel channel, MainActivity activity) {
 
@@ -55,10 +23,6 @@ public class WifiBroadcastReceiver extends BroadcastReceiver {
         this.manager = manager;
         this.channel = channel;
         this.activity = activity;
-    }
-
-    public List<WifiP2pDevice> getPeers() {
-        return peers;
     }
 
     @Override
@@ -86,12 +50,26 @@ public class WifiBroadcastReceiver extends BroadcastReceiver {
 
             // request for peers
             if(manager!=null)
-                manager.requestPeers(channel,peerListListener);
+                manager.requestPeers(channel,activity.peerListListener);
         }
 
         else if (WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION.equals(action)) {
             // Respond to new connection or disconnections
             Log.d("debugwifi", "onReceive: peer connected/disconnected ");
+
+            if(manager!=null){
+
+                NetworkInfo networkInfo = (NetworkInfo) intent.getParcelableExtra(WifiP2pManager.EXTRA_NETWORK_INFO);
+                if(networkInfo.isConnected()){
+                    //connected to peer ask for peer connection info
+                    Log.d("debugwifi", "onReceive: connected to peer requesting for peer connection info(play notification sound here?)");
+
+                    manager.requestConnectionInfo(channel,activity.connectionInfoListener);
+                }
+                else {
+                    Log.d("debugwifi", "onReceive: not connected to peer yet (play notification sound here?)");
+                }
+            }
         }
 
         else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION.equals(action)) {
