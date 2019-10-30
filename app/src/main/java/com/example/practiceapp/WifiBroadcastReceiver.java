@@ -80,6 +80,6 @@ public class WifiBroadcastReceiver extends BroadcastReceiver {
     }
 
 
-
+    private void doNothing(){}
 
 }

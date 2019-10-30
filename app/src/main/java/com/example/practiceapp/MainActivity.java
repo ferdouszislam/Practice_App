@@ -71,6 +71,8 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private void doNothing(){}
+
     //connection listener
     WifiP2pManager.ConnectionInfoListener connectionInfoListener = new WifiP2pManager.ConnectionInfoListener() {
         @Override
