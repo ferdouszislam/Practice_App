@@ -20,6 +20,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,11 @@ public class MainActivity extends AppCompatActivity {
     TextView wifitext;
     TextView peertext;
     Button sendbutton;
+
+    User me;
+    static Boolean isServer;
+    static InetAddress serverInetAddress;
+    static Boolean wifiState;
 
     WifiP2pManager manager;
     WifiP2pManager.Channel channel;
@@ -71,7 +77,7 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private void doNothing(){}
+
 
     //connection listener
     WifiP2pManager.ConnectionInfoListener connectionInfoListener = new WifiP2pManager.ConnectionInfoListener() {
@@ -87,6 +93,12 @@ public class MainActivity extends AppCompatActivity {
                 // One common case is creating a server thread and accepting
                 // incoming connections.
 
+                MainActivity.isServer = true;
+                MainActivity.serverInetAddress = groupOwnerAddress;
+                Log.d("socketdebug", "onConnectionInfoAvailable: MainActivity.isServer = "+MainActivity.isServer
+                        + " server ip = "+groupOwnerAddress);
+
+
                 Toast.makeText(MainActivity.this, "You are now Server",Toast.LENGTH_LONG).show();
 
                 Log.d("debugwifi", "onConnectionInfoAvailable: server");
@@ -94,6 +106,11 @@ public class MainActivity extends AppCompatActivity {
                 // The other device acts as the client. In this case,
                 // you'll want to create a client thread that connects to the group
                 // owner.
+
+                MainActivity.isServer = false;
+                MainActivity.serverInetAddress = groupOwnerAddress;
+                Log.d("socketdebug", "sendClick: MainActivity.isServer = "+MainActivity.isServer
+                        + " server ip = "+serverInetAddress.getHostAddress());
 
                 Toast.makeText(MainActivity.this, "You are now client",Toast.LENGTH_LONG).show();
 
@@ -120,7 +137,10 @@ public class MainActivity extends AppCompatActivity {
         if(wifiManager.isWifiEnabled()){
             wifitext.setText("WiFi: ON");
             connectbutton.setEnabled(true);
+            wifiState = true;
         }
+        else
+            wifiState = false;
 
         peerDiscovery();
 
@@ -179,29 +199,49 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void connect() {
-        // Picking the first device found on the network.
-        WifiP2pDevice device = peers.get(0);
 
-        WifiP2pConfig config = new WifiP2pConfig();
-        config.deviceAddress = device.deviceAddress;
-        config.wps.setup = WpsInfo.PBC;
+        // Picking the first device(phone?) found on the network.
+        Boolean deviceFound = false;
 
-        manager.connect(channel, config, new WifiP2pManager.ActionListener() {
+        WifiP2pDevice device = null;
+        for (int i = 0; i < peers.size(); i++){
 
-            @Override
-            public void onSuccess() {
-                // WiFiDirectBroadcastReceiver will notify us. Ignore for now.
+            //if(peers.get(i)!=null){}
+            Log.d("debugwifi", peers.get(i).primaryDeviceType);
 
-                messagetextbox.setEnabled(true);
-                sendbutton.setEnabled(true);
+            if (peers.get(i).primaryDeviceType.charAt(0)=='1') {
+                device = peers.get(i);
+                deviceFound=true;
+                Log.d("debugwifi", "connect: first phone? peer obtained");
+
+                break;
             }
+        }
 
-            @Override
-            public void onFailure(int reason) {
-                Toast.makeText(MainActivity.this, "Connect failed. Retry.",
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
+        if(deviceFound==true) {
+            WifiP2pConfig config = new WifiP2pConfig();
+            config.deviceAddress = device.deviceAddress;
+            config.wps.setup = WpsInfo.PBC;
+
+            manager.connect(channel, config, new WifiP2pManager.ActionListener() {
+
+                @Override
+                public void onSuccess() {
+                    // WiFiDirectBroadcastReceiver will notify us. Ignore for now.
+
+                    messagetextbox.setEnabled(true);
+                    sendbutton.setEnabled(true);
+                }
+
+                @Override
+                public void onFailure(int reason) {
+                    Toast.makeText(MainActivity.this, "Connect failed. Retry.",
+                            Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+        else
+            Toast.makeText(MainActivity.this,"No connectable peers found.",Toast.LENGTH_SHORT).show();
     }
 
 
@@ -241,7 +281,28 @@ public class MainActivity extends AppCompatActivity {
 
     public void sendClick(View view) {
 
-        //TODO: send data via wifi
+        //TODO: check
+        String message = messagetextbox.getText().toString();
+        messagetextbox.setText("");
+
+        Log.d("socketdebug", "sendClick: "+message);
+
+        if(message!=null){
+            if(MainActivity.isServer) {
+                Log.d("socketdebug", "sendClick: MainActivity.isServer = "+MainActivity.isServer
+                        + " server ip = "+serverInetAddress.getHostAddress());
+
+                me = new User(8888, MainActivity.this); //as user
+                me.execute(message);
+            }
+            else {
+                Log.d("socketdebug", "sendClick: MainActivity.isServer = "+MainActivity.isServer
+                        + " server ip = "+serverInetAddress.getHostAddress());
+
+                me = new User(8888, MainActivity.serverInetAddress.getHostAddress(), MainActivity.this); //as server
+                me.execute(message);
+            }
+        }
 
     }
 

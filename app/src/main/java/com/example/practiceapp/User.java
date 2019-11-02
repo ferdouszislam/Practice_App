@@ -114,7 +114,7 @@ public class User extends AsyncTask<String,String,String> {
             }
         }
 
-        
+
         String receivedMessage = null;
         try {
             receivedMessage = input.readUTF();
