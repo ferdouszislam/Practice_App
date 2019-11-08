@@ -1,10 +1,20 @@
 package com.example.practiceapp;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 
+import android.Manifest;
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.IntentSender;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationManager;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
@@ -13,15 +23,30 @@ import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Bundle;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.api.ResolvableApiException;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationAvailability;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResponse;
+import com.google.android.gms.location.SettingsClient;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -32,10 +57,18 @@ public class MainActivity extends AppCompatActivity {
     TextView peertext;
     Button sendbutton;
 
+    Button locationbutton;
+    TextView locationtext;
+
+
     User me;
+
+
+/**wifi p2p variables**/
     static Boolean isServer;
     static InetAddress serverInetAddress;
     static Boolean wifiState;
+
 
     WifiP2pManager manager;
     WifiP2pManager.Channel channel;
@@ -78,7 +111,6 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
-
     //connection listener
     WifiP2pManager.ConnectionInfoListener connectionInfoListener = new WifiP2pManager.ConnectionInfoListener() {
         @Override
@@ -119,7 +151,31 @@ public class MainActivity extends AppCompatActivity {
 
         }
     };
+/**end**/
 
+
+
+/**location variables declaration**/
+
+    private static final String LOCATION_TAG = "debuglocation";
+    private static final int ACCESS_FINE_LOCATION_REQUEST_CODE = 100;
+    private Boolean isLocationEnabled = false;
+
+    private FusedLocationProviderClient locationClient;
+    private LocationRequest locationRequest;
+
+    //callback for location request
+    private LocationCallback locationCallback = new LocationCallback(){
+        @Override
+        public void onLocationAvailability(LocationAvailability locationAvailability) {
+            super.onLocationAvailability(locationAvailability);
+            Log.d(LOCATION_TAG, "onLocationAvailability: location available");
+        }
+    };
+
+    private String langlat = "";
+
+/**end**/
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -129,7 +185,10 @@ public class MainActivity extends AppCompatActivity {
         connectbutton = findViewById(R.id.connectbutton);
         messagetextbox = findViewById(R.id.messagetextbox);
         sendbutton = findViewById(R.id.sendbutton);
+        locationbutton = findViewById(R.id.locationbutton);
+        locationtext = findViewById(R.id.locationtext);
 
+        /**wifip2p initialization**/
         wifitext = findViewById(R.id.wifistatustext);
         peertext = findViewById(R.id.peerstatustext);
         initializeWifi();
@@ -143,6 +202,12 @@ public class MainActivity extends AppCompatActivity {
             wifiState = false;
 
         peerDiscovery();
+        /**end**/
+
+        /**locations initialization**/
+        initializeLocation();
+        /**end**/
+
 
     }
 
@@ -158,6 +223,23 @@ public class MainActivity extends AppCompatActivity {
         unregisterReceiver(receiver);
     }
 
+/**location methods*/
+
+    private void initializeLocation(){
+
+        locationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        locationRequest = LocationRequest.create();
+        locationRequest.setInterval(10000);
+        locationRequest.setFastestInterval(5000);
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+
+    }
+
+/**end*/
+
+
+/**wifip2p methods**/
 
     private void initializeWifi() {
 
@@ -281,11 +363,17 @@ public class MainActivity extends AppCompatActivity {
 
     public void sendClick(View view) {
 
-        //TODO: check
+
         String message = messagetextbox.getText().toString();
         messagetextbox.setText("");
 
         Log.d("socketdebug", "sendClick: "+message);
+
+        transferData(message, false);
+
+    }
+
+    private void transferData(String message,Boolean sendLocation) {
 
         if(message!=null){
             if(MainActivity.isServer) {
@@ -293,18 +381,108 @@ public class MainActivity extends AppCompatActivity {
                         + " server ip = "+serverInetAddress.getHostAddress());
 
                 me = new User(8888, MainActivity.this); //as user
-                me.execute(message);
             }
             else {
                 Log.d("socketdebug", "sendClick: MainActivity.isServer = "+MainActivity.isServer
                         + " server ip = "+serverInetAddress.getHostAddress());
 
                 me = new User(8888, MainActivity.serverInetAddress.getHostAddress(), MainActivity.this); //as server
-                me.execute(message);
             }
+
+            if(sendLocation)
+                me.execute("!loc: "+message);
+            else
+                me.execute(message);
         }
 
     }
 
+    /**wifip2p methods end**/
 
+
+    public void locationClick(View view){
+
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
+            //request user permission
+
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
+        }
+
+        else {
+
+            locationClient.getLastLocation()
+                    .addOnSuccessListener(this, new OnSuccessListener<Location>() {
+                        @Override
+                        public void onSuccess(Location location) {
+
+                            if (location != null) {
+
+                                locationtext.setText("Location: "+location.getLatitude()+","+location.getLongitude());
+
+                                //locationClient.removeLocationUpdates(locationCallback);
+
+                                transferData(location.getLatitude()+","+location.getLongitude()+" "+location.getAccuracy(), true);
+
+                                Log.d(LOCATION_TAG, "onSuccess: device's last known location acquired. langlat-"
+                                        + location.getLongitude()+","+location.getLatitude());
+                            }
+                            else if(ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
+                                    //request user permission
+
+                                    ActivityCompat.requestPermissions((Activity) getApplicationContext(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
+
+                            }
+                            else {
+                                Log.d(LOCATION_TAG, "onSuccess: user permission request done. location is null");
+
+                                checkDeviceLocationSettings();
+
+                                if(isLocationEnabled) {
+                                    locationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+                                }
+                            }
+                        }
+                    });
+
+        }
+
+    }
+
+    private void checkDeviceLocationSettings() {
+
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
+
+        SettingsClient client = LocationServices.getSettingsClient(this);
+        Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
+
+        task.addOnFailureListener(this, new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                if(e instanceof ResolvableApiException){
+                    try{
+
+                        ResolvableApiException resolvable = (ResolvableApiException) e;
+                        resolvable.startResolutionForResult(MainActivity.this,101); //runs onActivityResult() callback
+
+                    }catch (IntentSender.SendIntentException sendEx){
+                        //ignore
+                    }
+                }
+            }
+        });
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if(requestCode == 101){
+            if(Activity.RESULT_OK == resultCode){
+                isLocationEnabled = true;
+            }
+            else{
+                Toast.makeText(this,"please turn on Locations.",Toast.LENGTH_SHORT).show();
+                isLocationEnabled = false;
+            }
+        }
+    }
 }

@@ -131,7 +131,7 @@ public class User extends AsyncTask<String,String,String> {
         }
 
         if(receivedMessage==null)
-            receivedMessage = "No new messages";
+            receivedMessage = "";
 
 
         try {
@@ -153,11 +153,21 @@ public class User extends AsyncTask<String,String,String> {
 
     @Override
     protected void onPostExecute(String s) {
-        Log.d("socketdebug", "onPostExecute: end of AsyncTask");
+        //Log.d("socketdebug", "onPostExecute: end of AsyncTask");
 
-        Toast messageToast = Toast.makeText(activity.getApplicationContext(),s,Toast.LENGTH_LONG);
-        messageToast.setGravity(Gravity.CENTER,0,0);
-        messageToast.show();
+        if(s.substring(0,3).equals("!loc: ")){
+            //show in map
+            String langlat = s.substring(0,s.indexOf(" ") );
+            String accuracy = s.substring(s.indexOf(" ")+1);
+
+
+        }
+
+        else{
+            Toast messageToast = Toast.makeText(activity.getApplicationContext(), s, Toast.LENGTH_LONG);
+            messageToast.setGravity(Gravity.CENTER, 0, 0);
+            messageToast.show();
+        }
 
     }
 }

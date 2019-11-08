@@ -18,7 +18,7 @@
         android:paddingLeft="5dp"
         android:paddingRight="5dp"
         android:text="Connect"
-        android:textSize="30sp"
+        android:textSize="24sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.065"
@@ -32,12 +32,14 @@
         android:layout_height="wrap_content"
         android:enabled="false"
         android:onClick="sendClick"
-        android:text="send"
-        android:textSize="24sp"
+        android:text="text"
+        android:textSize="20sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.294"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.499" />
 
     <EditText
         android:id="@+id/messagetextbox"
@@ -68,7 +70,7 @@
         android:paddingLeft="5dp"
         android:paddingRight="5dp"
         android:text="WiFi"
-        android:textSize="30sp"
+        android:textSize="24sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.487"
@@ -95,4 +97,33 @@
         android:textSize="20sp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/wifistatustext" />
+
+    <Button
+        android:id="@+id/locationbutton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:enabled="true"
+        android:onClick="locationClick"
+        android:text="location"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.212"
+        app:layout_constraintStart_toEndOf="@+id/sendbutton"
+        app:layout_constraintTop_toBottomOf="@+id/messagetextbox"
+        app:layout_constraintVertical_bias="0.017" />
+
+    <TextView
+        android:id="@+id/locationtext"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Location: "
+        android:textSize="20sp"
+        app:layout_constraintBottom_toTopOf="@+id/messagetextbox"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.813" />
 </androidx.constraintlayout.widget.ConstraintLayout>
