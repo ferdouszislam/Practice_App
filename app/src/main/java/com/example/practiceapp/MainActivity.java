@@ -13,6 +13,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.net.wifi.WifiManager;
@@ -23,7 +24,9 @@ import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.ResultReceiver;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -59,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
 
     Button locationbutton;
     TextView locationtext;
+    TextView addressText;
 
 
     User me;
@@ -157,9 +161,11 @@ public class MainActivity extends AppCompatActivity {
 
 /**location variables declaration**/
 
-    private static final String LOCATION_TAG = "debuglocation";
+    public static final String LOCATION_TAG = "debuglocation";
     private static final int ACCESS_FINE_LOCATION_REQUEST_CODE = 100;
-    private Boolean isLocationEnabled = false;
+
+    public static Boolean isLocationEnabled = false;
+    public static Boolean locationRequested = false;
 
     private FusedLocationProviderClient locationClient;
     private LocationRequest locationRequest;
@@ -173,7 +179,29 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private String langlat = "";
+    //private String langlat = "";
+
+    class AddressResultReceiver extends ResultReceiver{
+
+        public AddressResultReceiver(Handler handler) {
+            super(handler);
+        }
+
+        @Override
+        protected void onReceiveResult(int resultCode, Bundle resultData) {
+            if(resultData==null)
+                return;
+
+            String addressOutput = resultData.getString(Constants.RESULT_DATA_KEY); //receive data from the FetchAddressIntentService
+            if(addressOutput==null)
+                addressOutput = "";
+
+            Toast.makeText(MainActivity.this,addressOutput,Toast.LENGTH_LONG).show();
+            MainActivity.this.addressText.setText("Address: "+addressOutput+"");
+        }
+    }
+
+    AddressResultReceiver resultReceiver = new AddressResultReceiver(new Handler());
 
 /**end**/
 
@@ -187,6 +215,7 @@ public class MainActivity extends AppCompatActivity {
         sendbutton = findViewById(R.id.sendbutton);
         locationbutton = findViewById(R.id.locationbutton);
         locationtext = findViewById(R.id.locationtext);
+        addressText = findViewById(R.id.addressText);
 
         /**wifip2p initialization**/
         wifitext = findViewById(R.id.wifistatustext);
@@ -236,7 +265,128 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    public void locationClick(View view){
+
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
+            //request user permission
+
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
+        }
+
+        else {
+
+            locationClient.getLastLocation()
+                    .addOnSuccessListener(this, new OnSuccessListener<Location>() {
+                        @Override
+                        public void onSuccess(Location location) {
+
+                            if (location != null) {
+
+                                if(!locationRequested)
+                                    locationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+
+                                locationtext.setText("Location: "+location.getLatitude()+","+location.getLongitude()
+                                        +"(accuracy: "+location.getAccuracy()+")");
+
+                                //locationClient.removeLocationUpdates(locationCallback);
+
+                                //transferData(location.getLatitude()+","+location.getLongitude()+" "+location.getAccuracy(), true);
+
+                                Log.d(LOCATION_TAG, "onSuccess: device's last known location acquired. langlat-"
+                                        + location.getLongitude()+","+location.getLatitude());
+
+                                if(!Geocoder.isPresent()){
+                                    Log.d(LOCATION_TAG, "onSuccess: no geocoder found");
+                                    Toast.makeText(MainActivity.this,"no geocoder found!",Toast.LENGTH_LONG).show();
+
+                                    return;
+                                }
+
+                                //check accuracy before starting service
+                                startIntentService(location);
+
+                                //locationtext.append();
+
+                            }
+                            else if(ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
+                                //request user permission
+
+                                ActivityCompat.requestPermissions((Activity) getApplicationContext(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
+
+                            }
+                            else {
+                                Log.d(LOCATION_TAG, "onSuccess: user permission request done. location is null");
+
+                                checkDeviceLocationSettings();
+
+                                if(isLocationEnabled) {
+                                    locationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+                                    locationRequested = true;
+
+                                    Log.d(LOCATION_TAG, "onSuccess: location updates requested");
+                                }
+                            }
+                        }
+                    });
+
+        }
+
+    }
+
+    private void startIntentService(Location location) {
+
+        Intent intent = new Intent(MainActivity.this, FetchAddressIntentService.class);
+        intent.putExtra(Constants.RECEIVER, resultReceiver);
+        intent.putExtra(Constants.LOCATION_DATA_EXTRA,location);
+
+        startService(intent);
+
+    }
+
+    private void checkDeviceLocationSettings() {
+
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
+
+        SettingsClient client = LocationServices.getSettingsClient(this);
+        Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
+
+        task.addOnFailureListener(this, new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                if(e instanceof ResolvableApiException){
+                    try{
+
+                        ResolvableApiException resolvable = (ResolvableApiException) e;
+                        resolvable.startResolutionForResult(MainActivity.this,101); //runs onActivityResult() callback
+
+                    }catch (IntentSender.SendIntentException sendEx){
+                        //ignore
+                    }
+                }
+            }
+        });
+
+    }
+
 /**end*/
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if(requestCode == 101){
+            if(Activity.RESULT_OK == resultCode){
+                isLocationEnabled = true;
+            }
+            else{
+                Toast.makeText(this,"please turn on Locations.",Toast.LENGTH_SHORT).show();
+                isLocationEnabled = false;
+            }
+        }
+    }
+
+
+
+
+
 
 
 /**wifip2p methods**/
@@ -399,90 +549,4 @@ public class MainActivity extends AppCompatActivity {
 
     /**wifip2p methods end**/
 
-
-    public void locationClick(View view){
-
-        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
-            //request user permission
-
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
-        }
-
-        else {
-
-            locationClient.getLastLocation()
-                    .addOnSuccessListener(this, new OnSuccessListener<Location>() {
-                        @Override
-                        public void onSuccess(Location location) {
-
-                            if (location != null) {
-
-                                locationtext.setText("Location: "+location.getLatitude()+","+location.getLongitude());
-
-                                //locationClient.removeLocationUpdates(locationCallback);
-
-                                transferData(location.getLatitude()+","+location.getLongitude()+" "+location.getAccuracy(), true);
-
-                                Log.d(LOCATION_TAG, "onSuccess: device's last known location acquired. langlat-"
-                                        + location.getLongitude()+","+location.getLatitude());
-                            }
-                            else if(ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
-                                    //request user permission
-
-                                    ActivityCompat.requestPermissions((Activity) getApplicationContext(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
-
-                            }
-                            else {
-                                Log.d(LOCATION_TAG, "onSuccess: user permission request done. location is null");
-
-                                checkDeviceLocationSettings();
-
-                                if(isLocationEnabled) {
-                                    locationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-                                }
-                            }
-                        }
-                    });
-
-        }
-
-    }
-
-    private void checkDeviceLocationSettings() {
-
-        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder().addLocationRequest(locationRequest);
-
-        SettingsClient client = LocationServices.getSettingsClient(this);
-        Task<LocationSettingsResponse> task = client.checkLocationSettings(builder.build());
-
-        task.addOnFailureListener(this, new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                if(e instanceof ResolvableApiException){
-                    try{
-
-                        ResolvableApiException resolvable = (ResolvableApiException) e;
-                        resolvable.startResolutionForResult(MainActivity.this,101); //runs onActivityResult() callback
-
-                    }catch (IntentSender.SendIntentException sendEx){
-                        //ignore
-                    }
-                }
-            }
-        });
-
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        if(requestCode == 101){
-            if(Activity.RESULT_OK == resultCode){
-                isLocationEnabled = true;
-            }
-            else{
-                Toast.makeText(this,"please turn on Locations.",Toast.LENGTH_SHORT).show();
-                isLocationEnabled = false;
-            }
-        }
-    }
 }
