@@ -1,5 +1,7 @@
 package com.example.practiceapp;
 
+import android.app.usage.NetworkStatsManager;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.util.Log;
 import android.view.Gravity;
@@ -13,6 +15,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 public class User extends AsyncTask<String,String,String> {
+
+    private static final String SOCKET_DEBUG = "socketdebug";
 
     private MainActivity activity;
     private int port;
@@ -41,7 +45,7 @@ public class User extends AsyncTask<String,String,String> {
 
         if(this.serverIp==null){
             //this is server
-            Log.d("socketdebug", "init: initializing as server");
+            Log.d(User.SOCKET_DEBUG, "init: initializing as server");
 
             try {
                 serverSocket = new ServerSocket(this.port);
@@ -49,13 +53,13 @@ public class User extends AsyncTask<String,String,String> {
             } catch (IOException e) {
                 e.printStackTrace();
 
-                Log.d("socketdebug", "init: problem starting server or connectiong to client");
+                Log.d(User.SOCKET_DEBUG, "init: problem starting server or connectiong to client");
                 publishProgress("Error starting server or connecting to client. Retry.");
             }
         }
         else {
             //this is client
-            Log.d("socketdebug", "init: initializing as client");
+            Log.d(User.SOCKET_DEBUG, "init: initializing as client");
 
             try {
                 client = new Socket();
@@ -63,7 +67,7 @@ public class User extends AsyncTask<String,String,String> {
             } catch (IOException e) {
                 e.printStackTrace();
 
-                Log.d("socketdebug", "init: problem starting client socket send again");
+                Log.d(User.SOCKET_DEBUG, "init: problem starting client socket send again");
                 publishProgress("Error starting client socket. Retry.");
             }
         }
@@ -75,7 +79,7 @@ public class User extends AsyncTask<String,String,String> {
 
             e.printStackTrace();
 
-            Log.d("socketdebug", "init: problem starting i/o streams");
+            Log.d(User.SOCKET_DEBUG, "init: problem starting i/o streams");
         }
     }
 
@@ -88,11 +92,11 @@ public class User extends AsyncTask<String,String,String> {
     /*@Override
     protected void onPreExecute() {
         showToast("AsyncTask started");
-        Log.d("socketdebug", "onPreExecute: AsyncTask started");
+        Log.d(User.SOCKET_DEBUG, "onPreExecute: AsyncTask started");
     }*/
 
     @Override
-    protected String doInBackground(String... strings) { Log.d("socketdebug", "doInBackground: "+strings[0]);
+    protected String doInBackground(String... strings) { Log.d(User.SOCKET_DEBUG, "doInBackground: "+strings[0]);
 
         this.init();
 
@@ -104,12 +108,12 @@ public class User extends AsyncTask<String,String,String> {
             } catch (IOException e) {
                 e.printStackTrace();
 
-                Log.d("socketdebug", "doInBackground: message not sent");
+                Log.d(User.SOCKET_DEBUG, "doInBackground: message not sent");
                 publishProgress("Error! message not sent.");
             } catch (NullPointerException ne){
                 ne.printStackTrace();
 
-                Log.d("socketdebug", "doInBackground: server not connected yet");
+                Log.d(User.SOCKET_DEBUG, "doInBackground: server not connected yet");
                 publishProgress("Not connected to server. Retry.");
             }
         }
@@ -121,12 +125,12 @@ public class User extends AsyncTask<String,String,String> {
         } catch (IOException e) {
             e.printStackTrace();
 
-            Log.d("socketdebug", "doInBackground: message not received");
+            Log.d(User.SOCKET_DEBUG, "doInBackground: message not received");
             publishProgress("Error! message not received.");
         } catch (NullPointerException ne){
             ne.printStackTrace();
 
-            Log.d("socketdebug", "doInBackground: server not connected yet");
+            Log.d(User.SOCKET_DEBUG, "doInBackground: server not connected yet");
             publishProgress("Not connected to server. Retry.");
         }
 
@@ -140,7 +144,7 @@ public class User extends AsyncTask<String,String,String> {
         } catch (Exception e) {
             e.printStackTrace();
 
-            Log.d("socketdebug", "doInBackground: socket closing error");
+            Log.d(User.SOCKET_DEBUG, "doInBackground: socket closing error");
         }
 
         return receivedMessage;
@@ -153,21 +157,47 @@ public class User extends AsyncTask<String,String,String> {
 
     @Override
     protected void onPostExecute(String s) {
-        //Log.d("socketdebug", "onPostExecute: end of AsyncTask");
+        //Log.d(User.SOCKET_DEBUG, "onPostExecute: end of AsyncTask");
 
-        if(s.substring(0,3).equals("!loc: ")){
-            //show in map
-            String langlat = s.substring(0,s.indexOf(" ") );
-            String accuracy = s.substring(s.indexOf(" ")+1);
+        Toast messageToast;
+
+        if(s!=null && s!="") {
+
+            try {
+                if (s.substring(0, 5).equals("!loc:")) {
+
+                    //format: latitude,longitude accuracy
+                    String langlat = s.substring(5, s.indexOf(" "));
+                    String accuracy = s.substring(s.indexOf(" ") + 1);
+
+                    s = langlat + " " + accuracy;
+
+                    double latitude = Double.parseDouble( langlat.substring(0,langlat.indexOf(",")) );
+                    double longitude = Double.parseDouble( langlat.substring(langlat.indexOf(",")+1) );
+                    Log.d(User.SOCKET_DEBUG, "onPostExecute: co-ordinates converted to double: "+latitude+" "+longitude);
+
+                    //TODO: start MapsActivity
+
+                    Intent startMapIntent = new Intent(activity, MapsActivity.class);
+                    startMapIntent.putExtra(Constants.MAP_LATITUDE, latitude);
+                    startMapIntent.putExtra(Constants.MAP_LONGITUDE, longitude);
+
+                    activity.startActivity(startMapIntent);
+
+                }
+            }catch (Exception se){
+                se.printStackTrace();
+                Log.e(User.SOCKET_DEBUG, "onPostExecute: plain text received or formatting error\n"+se.getMessage());
+            }
 
 
-        }
-
-        else{
-            Toast messageToast = Toast.makeText(activity.getApplicationContext(), s, Toast.LENGTH_LONG);
+            messageToast = Toast.makeText(activity.getApplicationContext(), s, Toast.LENGTH_LONG);
             messageToast.setGravity(Gravity.CENTER, 0, 0);
             messageToast.show();
         }
+
+        else
+            Log.d(User.SOCKET_DEBUG, "onPostExecute: null message received");
 
     }
 }

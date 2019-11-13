@@ -116,7 +116,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     //connection listener
-    WifiP2pManager.ConnectionInfoListener connectionInfoListener = new WifiP2pManager.ConnectionInfoListener() {
+    WifiP2pManager.ConnectionInfoListener connectionInfoListener =new WifiP2pManager.ConnectionInfoListener() {
         @Override
         public void onConnectionInfoAvailable(WifiP2pInfo info) {
 
@@ -153,6 +153,10 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("debugwifi", "onConnectionInfoAvailable: client");
             }
 
+            MainActivity.this.locationbutton.setEnabled(true);
+            MainActivity.this.sendbutton.setEnabled(true);
+            MainActivity.this.messagetextbox.setEnabled(true);
+
         }
     };
 /**end**/
@@ -167,11 +171,11 @@ public class MainActivity extends AppCompatActivity {
     public static Boolean isLocationEnabled = false;
     public static Boolean locationRequested = false;
 
-    private FusedLocationProviderClient locationClient;
-    private LocationRequest locationRequest;
+    public static FusedLocationProviderClient locationClient;
+    public static LocationRequest locationRequest;
 
     //callback for location request
-    private LocationCallback locationCallback = new LocationCallback(){
+    public static LocationCallback locationCallback = new LocationCallback(){
         @Override
         public void onLocationAvailability(LocationAvailability locationAvailability) {
             super.onLocationAvailability(locationAvailability);
@@ -243,13 +247,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        registerReceiver(receiver,intentFilter);
+        registerReceiver(receiver,intentFilter); //wifip2p broadcast receiver
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        unregisterReceiver(receiver);
+        unregisterReceiver(receiver); //wifip2p broadcast receiver
     }
 
 /**location methods*/
@@ -285,12 +289,15 @@ public class MainActivity extends AppCompatActivity {
                                 if(!locationRequested)
                                     locationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
 
+                                //AccurateLocationAsync accurateLocation = new AccurateLocationAsync(MainActivity.this /**,locationClient,locationRequest,locationCallback**/);
+                                //accurateLocation.execute(location);
+
                                 locationtext.setText("Location: "+location.getLatitude()+","+location.getLongitude()
-                                        +"(accuracy: "+location.getAccuracy()+")");
+                                        +"(accuracy: "+(int)location.getAccuracy()+")");
 
                                 //locationClient.removeLocationUpdates(locationCallback);
 
-                                //transferData(location.getLatitude()+","+location.getLongitude()+" "+location.getAccuracy(), true);
+                                transferData(location.getLatitude()+","+location.getLongitude()+" "+location.getAccuracy(), true);
 
                                 Log.d(LOCATION_TAG, "onSuccess: device's last known location acquired. langlat-"
                                         + location.getLongitude()+","+location.getLatitude());
@@ -303,23 +310,29 @@ public class MainActivity extends AppCompatActivity {
                                 }
 
                                 //check accuracy before starting service
-                                startIntentService(location);
+                                startAddressIntentService(location);
 
                                 //locationtext.append();
 
                             }
                             else if(ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
                                 //request user permission
-
+                                Log.d(LOCATION_TAG, "onSuccess: request for permissions");
                                 ActivityCompat.requestPermissions((Activity) getApplicationContext(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
 
                             }
                             else {
                                 Log.d(LOCATION_TAG, "onSuccess: user permission request done. location is null");
 
+                                try {
+                                    locationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+                                    locationRequested = true;
+                                }catch (Exception e){
+                                    Log.e(LOCATION_TAG, "onSuccess: error in requesting location before cheking location setttings", e);
+                                }
                                 checkDeviceLocationSettings();
 
-                                if(isLocationEnabled) {
+                                if(isLocationEnabled&&!locationRequested) {
                                     locationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
                                     locationRequested = true;
 
@@ -333,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void startIntentService(Location location) {
+    private void startAddressIntentService(Location location) {
 
         Intent intent = new Intent(MainActivity.this, FetchAddressIntentService.class);
         intent.putExtra(Constants.RECEIVER, resultReceiver);
@@ -382,9 +395,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
-
-
 
 
 
@@ -463,6 +473,7 @@ public class MainActivity extends AppCompatActivity {
 
                     messagetextbox.setEnabled(true);
                     sendbutton.setEnabled(true);
+                    locationbutton.setEnabled(true);
                 }
 
                 @Override
@@ -540,7 +551,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if(sendLocation)
-                me.execute("!loc: "+message);
+                me.execute("!loc:"+message);
             else
                 me.execute(message);
         }
