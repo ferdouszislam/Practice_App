@@ -68,7 +68,15 @@ public class MainActivity extends AppCompatActivity {
     User me;
 
 
+    private static final String PERMISSION_TAG = "permissiondebug";
+
 /**wifi p2p variables**/
+
+    private static final int ACCESS_WIFI_STATE_REQUEST_CODE = 102;
+    private static final int CHANGE_WIFI_STATE_REQUEST_CODE = 103;
+    private static final int CHANGE_NETWORK_STATE_CODE = 104;
+    private static final int INTERNET_REQUEST_CODE = 105;
+
     static Boolean isServer;
     static InetAddress serverInetAddress;
     static Boolean wifiState;
@@ -234,6 +242,8 @@ public class MainActivity extends AppCompatActivity {
         else
             wifiState = false;
 
+        askPermission();
+
         peerDiscovery();
         /**end**/
 
@@ -242,6 +252,44 @@ public class MainActivity extends AppCompatActivity {
         /**end**/
 
 
+    }
+
+    private void askPermission() {
+
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
+            //request user permission
+            Log.d(PERMISSION_TAG, "askPermissions: request FINE LOCATION permissions");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
+
+        }
+
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_WIFI_STATE) == PackageManager.PERMISSION_DENIED){
+            //request user permission
+            Log.d(PERMISSION_TAG, "askPermissions: request ACCESS WIFI STATE permissions");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_WIFI_STATE},ACCESS_WIFI_STATE_REQUEST_CODE);
+
+        }
+
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.CHANGE_WIFI_STATE) == PackageManager.PERMISSION_DENIED){
+            //request user permission
+            Log.d(PERMISSION_TAG, "askPermissions: request CHANGE WIFI STATE permissions");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CHANGE_WIFI_STATE},CHANGE_WIFI_STATE_REQUEST_CODE);
+
+        }
+
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.CHANGE_NETWORK_STATE) == PackageManager.PERMISSION_DENIED){
+            //request user permission
+            Log.d(PERMISSION_TAG, "askPermissions: request CHANGE NETWORK STATE permissions");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CHANGE_NETWORK_STATE},CHANGE_NETWORK_STATE_CODE);
+
+        }
+
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.INTERNET) == PackageManager.PERMISSION_DENIED){
+            //request user permission
+            Log.d(PERMISSION_TAG, "askPermissions: request INTERNET permissions");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET},INTERNET_REQUEST_CODE);
+
+        }
     }
 
     @Override
@@ -304,7 +352,7 @@ public class MainActivity extends AppCompatActivity {
 
                                 if(!Geocoder.isPresent()){
                                     Log.d(LOCATION_TAG, "onSuccess: no geocoder found");
-                                    Toast.makeText(MainActivity.this,"no geocoder found!",Toast.LENGTH_LONG).show();
+                                    Toast.makeText(MainActivity.this,"no geo-coder found!",Toast.LENGTH_LONG).show();
 
                                     return;
                                 }
@@ -312,23 +360,21 @@ public class MainActivity extends AppCompatActivity {
                                 //check accuracy before starting service
                                 startAddressIntentService(location);
 
-                                //locationtext.append();
-
                             }
                             else if(ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_DENIED){
                                 //request user permission
-                                Log.d(LOCATION_TAG, "onSuccess: request for permissions");
+                                Log.d(PERMISSION_TAG, "onSuccess: request Access Fine Location in getLastLocation");
                                 ActivityCompat.requestPermissions((Activity) getApplicationContext(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION},ACCESS_FINE_LOCATION_REQUEST_CODE);
 
                             }
                             else {
-                                Log.d(LOCATION_TAG, "onSuccess: user permission request done. location is null");
+                                Log.d(LOCATION_TAG, "onSuccess: user permission request done. location still null");
 
                                 try {
                                     locationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
                                     locationRequested = true;
                                 }catch (Exception e){
-                                    Log.e(LOCATION_TAG, "onSuccess: error in requesting location before cheking location setttings", e);
+                                    Log.e(LOCATION_TAG, "onSuccess: error in requesting location before checking location setttings", e);
                                 }
                                 checkDeviceLocationSettings();
 
@@ -390,7 +436,17 @@ public class MainActivity extends AppCompatActivity {
                 isLocationEnabled = true;
             }
             else{
-                Toast.makeText(this,"please turn on Locations.",Toast.LENGTH_SHORT).show();
+                Toast.makeText(this,"please turn on locations.",Toast.LENGTH_SHORT).show();
+                isLocationEnabled = false;
+            }
+        }
+
+        if(resultCode == 100){
+            if(Activity.RESULT_OK == resultCode){
+                isLocationEnabled = true;
+            }
+            else{
+                Toast.makeText(this,"please allow ACCESS FINE LOCATION",Toast.LENGTH_SHORT).show();
                 isLocationEnabled = false;
             }
         }

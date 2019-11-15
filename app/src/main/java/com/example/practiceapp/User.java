@@ -176,8 +176,7 @@ public class User extends AsyncTask<String,String,String> {
                     double longitude = Double.parseDouble( langlat.substring(langlat.indexOf(",")+1) );
                     Log.d(User.SOCKET_DEBUG, "onPostExecute: co-ordinates converted to double: "+latitude+" "+longitude);
 
-                    //TODO: start MapsActivity
-
+                    //show on map
                     Intent startMapIntent = new Intent(activity, MapsActivity.class);
                     startMapIntent.putExtra(Constants.MAP_LATITUDE, latitude);
                     startMapIntent.putExtra(Constants.MAP_LONGITUDE, longitude);
