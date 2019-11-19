@@ -191,7 +191,6 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    //private String langlat = "";
 
     class AddressResultReceiver extends ResultReceiver{
 
@@ -238,13 +237,14 @@ public class MainActivity extends AppCompatActivity {
             wifitext.setText("WiFi: ON");
             connectbutton.setEnabled(true);
             wifiState = true;
+
+            peerDiscovery();
         }
         else
             wifiState = false;
 
         askPermission();
 
-        peerDiscovery();
         /**end**/
 
         /**locations initialization**/
@@ -429,6 +429,7 @@ public class MainActivity extends AppCompatActivity {
 
 /**end*/
 
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         if(requestCode == 101){
@@ -491,6 +492,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("debugwifi", "onSuccess: peer discovery failed (fail code-"+reason+")");
 
                 Toast.makeText(MainActivity.this, "Peer discovery FAILED!",Toast.LENGTH_SHORT).show();
+
+                peerDiscovery(); //repeatedly call peerDiscovery();
             }
         });
 
@@ -517,9 +520,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if(deviceFound==true) {
-            WifiP2pConfig config = new WifiP2pConfig();
+
+            final WifiP2pConfig config = new WifiP2pConfig();
             config.deviceAddress = device.deviceAddress;
             config.wps.setup = WpsInfo.PBC;
+
+            config.groupOwnerIntent = 0; //set peer device as host (not certain)
 
             manager.connect(channel, config, new WifiP2pManager.ActionListener() {
 
@@ -530,10 +536,14 @@ public class MainActivity extends AppCompatActivity {
                     messagetextbox.setEnabled(true);
                     sendbutton.setEnabled(true);
                     locationbutton.setEnabled(true);
+
+                    Log.d(User.SOCKET_DEBUG, "onSuccess: grouOwnerIntent = "+config.groupOwnerIntent);
                 }
 
                 @Override
                 public void onFailure(int reason) {
+                    Log.d(User.SOCKET_DEBUG, "connect onFailure: reason code = "+reason);
+
                     Toast.makeText(MainActivity.this, "Connect failed. Retry.",
                             Toast.LENGTH_SHORT).show();
                 }
@@ -560,6 +570,10 @@ public class MainActivity extends AppCompatActivity {
             wifitext.setText("WiFi: ON");
 
             connectbutton.setEnabled(true);
+
+            while (!wifiManager.isWifiEnabled()){}
+
+            peerDiscovery();
         }
     }
 

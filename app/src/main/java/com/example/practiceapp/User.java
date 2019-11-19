@@ -1,6 +1,6 @@
 package com.example.practiceapp;
 
-import android.app.usage.NetworkStatsManager;
+
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.util.Log;
@@ -16,7 +16,7 @@ import java.net.Socket;
 
 public class User extends AsyncTask<String,String,String> {
 
-    private static final String SOCKET_DEBUG = "socketdebug";
+    public static final String SOCKET_DEBUG = "socketdebug";
 
     private MainActivity activity;
     private int port;
@@ -41,10 +41,11 @@ public class User extends AsyncTask<String,String,String> {
 
 
 
-    private void init(){
+    private boolean init(){
 
         if(this.serverIp==null){
             //this is server
+
             Log.d(User.SOCKET_DEBUG, "init: initializing as server");
 
             try {
@@ -55,20 +56,26 @@ public class User extends AsyncTask<String,String,String> {
 
                 Log.d(User.SOCKET_DEBUG, "init: problem starting server or connectiong to client");
                 publishProgress("Error starting server or connecting to client. Retry.");
+
+                return false;
             }
         }
         else {
             //this is client
+
             Log.d(User.SOCKET_DEBUG, "init: initializing as client");
 
             try {
                 client = new Socket();
+
                 client.connect(new InetSocketAddress(this.serverIp,this.port),1000);
             } catch (IOException e) {
                 e.printStackTrace();
 
                 Log.d(User.SOCKET_DEBUG, "init: problem starting client socket send again");
-                publishProgress("Error starting client socket. Retry.");
+                publishProgress("Error starting client socket. Please send again.");
+
+                return false;
             }
         }
 
@@ -80,7 +87,11 @@ public class User extends AsyncTask<String,String,String> {
             e.printStackTrace();
 
             Log.d(User.SOCKET_DEBUG, "init: problem starting i/o streams");
+
+            return false;
         }
+
+        return true;
     }
 
     private void showToast(String alert){
@@ -98,56 +109,69 @@ public class User extends AsyncTask<String,String,String> {
     @Override
     protected String doInBackground(String... strings) { Log.d(User.SOCKET_DEBUG, "doInBackground: "+strings[0]);
 
-        this.init();
+        if(this.init()) {
+            //all connection created without any issue
 
-        String sendMessage = strings[0];
+            String sendMessage = strings[0];
 
-        if(sendMessage!=null) {
+            if (sendMessage != null) {
+                try {
+                    output.writeUTF(sendMessage);
+                } catch (IOException e) {
+                    e.printStackTrace();
+
+                    Log.d(User.SOCKET_DEBUG, "doInBackground: message not sent");
+                    publishProgress("Error! message not sent.");
+                } catch (NullPointerException ne) {
+                    ne.printStackTrace();
+
+                    Log.d(User.SOCKET_DEBUG, "doInBackground: server not connected yet");
+                    publishProgress("Not connected to server. Retry.");
+                }
+            }
+
+
+            String receivedMessage = null;
             try {
-                output.writeUTF(sendMessage);
+                receivedMessage = input.readUTF();
             } catch (IOException e) {
                 e.printStackTrace();
 
-                Log.d(User.SOCKET_DEBUG, "doInBackground: message not sent");
-                publishProgress("Error! message not sent.");
-            } catch (NullPointerException ne){
+                Log.d(User.SOCKET_DEBUG, "doInBackground: message not received");
+                publishProgress("Error! message not received.");
+            } catch (NullPointerException ne) {
                 ne.printStackTrace();
 
                 Log.d(User.SOCKET_DEBUG, "doInBackground: server not connected yet");
                 publishProgress("Not connected to server. Retry.");
             }
+
+            if (receivedMessage == null)
+                receivedMessage = "";
+
+
+            try {
+                serverSocket.close();
+                client.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+
+                Log.d(User.SOCKET_DEBUG, "doInBackground: socket closing error");
+            }
+
+            return receivedMessage;
+        }
+
+        else{
+            if(this.serverIp!=null)
+                Log.d(User.SOCKET_DEBUG, "doInBackground: Error in initializing client");
+            else
+                Log.d(User.SOCKET_DEBUG, "doInBackground: Error in initializing server!!!!!");
+
+            return null;
         }
 
 
-        String receivedMessage = null;
-        try {
-            receivedMessage = input.readUTF();
-        } catch (IOException e) {
-            e.printStackTrace();
-
-            Log.d(User.SOCKET_DEBUG, "doInBackground: message not received");
-            publishProgress("Error! message not received.");
-        } catch (NullPointerException ne){
-            ne.printStackTrace();
-
-            Log.d(User.SOCKET_DEBUG, "doInBackground: server not connected yet");
-            publishProgress("Not connected to server. Retry.");
-        }
-
-        if(receivedMessage==null)
-            receivedMessage = "";
-
-
-        try {
-            serverSocket.close();
-            client.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-
-            Log.d(User.SOCKET_DEBUG, "doInBackground: socket closing error");
-        }
-
-        return receivedMessage;
     }
 
     @Override
